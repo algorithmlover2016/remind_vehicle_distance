@@ -150,6 +150,7 @@ class CustomAnnotation: NSObject, MKAnnotation {
 struct MapView: UIViewRepresentable {
     @ObservedObject var locationManager: LocationManager
     @Binding var speed: CLLocationSpeed
+    let length: Double = 10 // Define the length in meters
 
     func makeUIView(context: Context) -> MKMapView {
         let mapView = MKMapView()
@@ -169,6 +170,38 @@ struct MapView: UIViewRepresentable {
 
         // Update speed
         speed = location.speed * 3.6 // Convert m/s to km/h
+        // Display warning message according to the speed
+        if speed >= 120 {
+            let distance = 7 * length
+            let message = "Please keep a distance of \(distance) meters."
+            let alertController = UIAlertController(title: "Warning", message: message, preferredStyle: .alert)
+            let okAction = UIAlertAction(title: "OK", style: .default, handler: nil)
+            alertController.addAction(okAction)
+            if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+               let viewController = windowScene.windows.first?.rootViewController {
+                viewController.present(alertController, animated: true, completion: nil)
+            }
+        } else if speed < 30 {
+            let distance = 2 * length
+            let message = "Please keep a distance of \(distance) meters."
+            let alertController = UIAlertController(title: "Warning", message: message, preferredStyle: .alert)
+            let okAction = UIAlertAction(title: "OK", style: .default, handler: nil)
+            alertController.addAction(okAction)
+            if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+               let viewController = windowScene.windows.first?.rootViewController {
+                viewController.present(alertController, animated: true, completion: nil)
+            }
+        } else {
+            let distance = (speed - 30) * 0.1 * length
+            let message = "Please keep a distance of \(distance) meters."
+            let alertController = UIAlertController(title: "Warning", message: message, preferredStyle: .alert)
+            let okAction = UIAlertAction(title: "OK", style: .default, handler: nil)
+            alertController.addAction(okAction)
+            if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+               let viewController = windowScene.windows.first?.rootViewController {
+                viewController.present(alertController, animated: true, completion: nil)
+            }
+        }
     }
 
     func makeCoordinator() -> Coordinator {
