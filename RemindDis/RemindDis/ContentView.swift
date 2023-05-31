@@ -9,17 +9,27 @@ import SwiftUI
 import CoreLocation
 import MapKit
 
-class LocationManager: NSObject, CLLocationManagerDelegate, ObservableObject {
+class LocationManager: NSObject, ObservableObject {
     private let locationManager = CLLocationManager()
-
-    @Published var location: CLLocation? = nil
+    @Published var location: CLLocation?
+    @Published var authorizationStatus: CLAuthorizationStatus?
+    @Published var locationServicesEnabled = CLLocationManager.locationServicesEnabled()
 
     override init() {
         super.init()
-        self.locationManager.delegate = self
-        self.locationManager.desiredAccuracy = kCLLocationAccuracyBest
-        self.locationManager.requestWhenInUseAuthorization()
-        self.locationManager.startUpdatingLocation()
+        locationManager.delegate = self
+        locationManager.desiredAccuracy = kCLLocationAccuracyBest
+        locationManager.requestWhenInUseAuthorization()
+        locationManager.startUpdatingLocation()
+    }
+}
+
+extension LocationManager: CLLocationManagerDelegate {
+    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        authorizationStatus = manager.authorizationStatus
+        if manager.authorizationStatus == .denied {
+            print("User denied location permission")
+        }
     }
 
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
@@ -30,6 +40,17 @@ class LocationManager: NSObject, CLLocationManagerDelegate, ObservableObject {
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
         print("Error getting location: \(error.localizedDescription)")
     }
+
+    func locationManager(_ manager: CLLocationManager, didChangeAuthorization status: CLAuthorizationStatus) {
+        locationServicesEnabled = CLLocationManager.locationServicesEnabled()
+        if locationServicesEnabled {
+            // Location services are enabled
+            print("User Location services are enabled")
+        } else {
+            // Location services are disabled
+            print("User Location services are disabled")
+        }
+    }
 }
 
 struct ContentView: View {
@@ -39,9 +60,10 @@ struct ContentView: View {
     var body: some View {
         VStack {
             HStack {
-                Image(systemName: "globe")
+                Image(systemName: "tornado")
                     .imageScale(.large)
                     .foregroundColor(.accentColor)
+                    .font(.system(size: 48))
                 Text("Hello, world!")
                     .font(.largeTitle)
                     .fontWeight(.bold)
@@ -66,6 +88,32 @@ struct ContentView: View {
     }
 }
 
+
+class CustomAnnotationView: MKMarkerAnnotationView {
+    override var annotation: MKAnnotation? {
+        didSet {
+            guard let annotation = annotation as? CustomAnnotation else { return }
+            glyphImage = annotation.image
+        }
+    }
+}
+
+class CustomAnnotation: NSObject, MKAnnotation {
+    var coordinate: CLLocationCoordinate2D
+    var title: String?
+    var subtitle: String?
+    var image: UIImage?
+    var detailImage: UIImage?
+
+    init(coordinate: CLLocationCoordinate2D, title: String?, subtitle: String?, image: UIImage?, detailImage: UIImage?) {
+        self.coordinate = coordinate
+        self.title = title
+        self.subtitle = subtitle
+        self.image = image
+        self.detailImage = detailImage
+    }
+}
+
 struct MapView: UIViewRepresentable {
     @ObservedObject var locationManager: LocationManager
     @Binding var speed: CLLocationSpeed
@@ -73,6 +121,7 @@ struct MapView: UIViewRepresentable {
     func makeUIView(context: Context) -> MKMapView {
         let mapView = MKMapView()
         mapView.showsUserLocation = true
+        mapView.delegate = context.coordinator
         return mapView
     }
 
@@ -81,14 +130,12 @@ struct MapView: UIViewRepresentable {
         let region = MKCoordinateRegion(center: location.coordinate, latitudinalMeters: 1000, longitudinalMeters: 1000)
         uiView.setRegion(region, animated: true)
 
-        // Add pin annotation to the map view
-        let annotation = MKPointAnnotation()
-        annotation.coordinate = location.coordinate
-        annotation.title = "Current Location"
+        // Add custom pin annotation to the map view
+        let annotation = CustomAnnotation(coordinate: location.coordinate, title: "Current Location", subtitle: nil, image: UIImage(named: "custom_pin"), detailImage: UIImage(named: "custom_detail"))
         uiView.addAnnotation(annotation)
 
         // Update speed
-        speed = location.speed
+        speed = location.speed * 3.6 // Convert m/s to km/h
     }
 
     func makeCoordinator() -> Coordinator {
@@ -103,15 +150,16 @@ struct MapView: UIViewRepresentable {
         }
 
         func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
-            let identifier = "pos"
-            var annotationView = mapView.dequeueReusableAnnotationView(withIdentifier: identifier)
+            guard let annotation = annotation as? CustomAnnotation else { return nil }
+            let identifier = "custom_pin"
+            var annotationView = mapView.dequeueReusableAnnotationView(withIdentifier: identifier) as? CustomAnnotationView
             if annotationView == nil {
-                annotationView = MKMarkerAnnotationView(annotation: annotation, reuseIdentifier: identifier)
+                annotationView = CustomAnnotationView(annotation: annotation, reuseIdentifier: identifier)
                 annotationView?.canShowCallout = true
 
-                // Customize the pin annotation
-                let imageView = UIImageView(image: UIImage(systemName: "location.fill"))
-                imageView.tintColor = .red
+                // Add custom image to the callout accessory view
+                let imageView = UIImageView(image: annotation.detailImage)
+                imageView.contentMode = .scaleAspectFit
                 annotationView?.leftCalloutAccessoryView = imageView
 
                 let button = UIButton(type: .detailDisclosure)
@@ -122,19 +170,7 @@ struct MapView: UIViewRepresentable {
             return annotationView
         }
     }
-    // Return a Text view from the body property
-    /*
-    @ViewBuilder
-    var body: some View {
-        VStack {
-            Text("Speed: \(speed, specifier: "%.2f") m/s")
-                .font(.headline)
-                .foregroundColor(.blue)
-        }
-    }
-    */
 }
-
 
 struct ContentView_Previews: PreviewProvider {
     static var previews: some View {
