@@ -119,6 +119,10 @@ struct ContentView: View {
             .background(Color.yellow)
             .cornerRadius(10)
 
+            MapView(locationManager: locationManager, speed: $speed, message: $message)
+                .frame(height: 300)
+                .cornerRadius(10)
+
             Text("Current Speed: \(speed, specifier: "%.2f") Km/h")
                 .font(.headline)
                 .foregroundColor(.blue)
@@ -126,15 +130,13 @@ struct ContentView: View {
                 .background(Color.yellow)
                 .cornerRadius(10)
 
-            MapView(locationManager: locationManager, speed: $speed, message: $message)
-                .frame(height: 300)
-                .cornerRadius(10)
             Text("Display: \(message)")
                 .font(.headline)
                 .foregroundColor(.red)
                 .padding()
                 .background(Color.yellow)
                 .cornerRadius(10)
+
         }
         .onAppear {
             locationManager.requestWhenInUseAuthorization()
