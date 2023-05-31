@@ -106,7 +106,7 @@ struct ContentView: View {
             .background(Color.yellow)
             .cornerRadius(10)
 
-            Text("Current Speed: \(speed, specifier: "%.2f") m/s")
+            Text("Current Speed: \(speed, specifier: "%.2f") Km/h")
                 .font(.headline)
                 .foregroundColor(.blue)
                 .padding()
