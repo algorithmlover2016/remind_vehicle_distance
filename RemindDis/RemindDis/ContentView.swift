@@ -22,6 +22,17 @@ class LocationManager: NSObject, ObservableObject {
         locationManager.requestWhenInUseAuthorization()
         locationManager.startUpdatingLocation()
     }
+    func requestWhenInUseAuthorization() {
+        locationManager.requestWhenInUseAuthorization()
+    }
+
+    func startUpdatingLocation() {
+        locationManager.startUpdatingLocation()
+    }
+
+    func stopUpdatingLocation() {
+        locationManager.stopUpdatingLocation()
+    }
 }
 
 extension LocationManager: CLLocationManagerDelegate {
@@ -36,7 +47,7 @@ extension LocationManager: CLLocationManagerDelegate {
         guard let location = locations.last else { return }
         self.location = location
         let newSpeed = location.speed * 3.6
-        let length = 5
+        let length = 7
         if newSpeed >= 120 {
             let distance = 7 * length
             let message = "Please keep a distance of \(distance) meters."
@@ -89,6 +100,8 @@ extension LocationManager: CLLocationManagerDelegate {
 struct ContentView: View {
     @ObservedObject var locationManager = LocationManager()
     @State private var speed: CLLocationSpeed = 0.0
+    @State private var message = "Init values"
+    let length: Double = 8 // Define the length in meters
 
     var body: some View {
         VStack {
@@ -113,11 +126,27 @@ struct ContentView: View {
                 .background(Color.yellow)
                 .cornerRadius(10)
 
-            MapView(locationManager: locationManager, speed: $speed)
+            MapView(locationManager: locationManager, speed: $speed, message: $message)
                 .frame(height: 300)
                 .cornerRadius(10)
+            Text("Display: \(message)")
+                .font(.headline)
+                .foregroundColor(.red)
+                .padding()
+                .background(Color.yellow)
+                .cornerRadius(10)
         }
-        .padding()
+        .onAppear {
+            locationManager.requestWhenInUseAuthorization()
+            locationManager.startUpdatingLocation()
+        }
+        .onDisappear {
+            locationManager.stopUpdatingLocation()
+        }
+    }
+
+    init() {
+        UINavigationBar.appearance().backgroundColor = .systemBlue
     }
 }
 
@@ -150,6 +179,7 @@ class CustomAnnotation: NSObject, MKAnnotation {
 struct MapView: UIViewRepresentable {
     @ObservedObject var locationManager: LocationManager
     @Binding var speed: CLLocationSpeed
+    @Binding var message: String
     let length: Double = 10 // Define the length in meters
 
     func makeUIView(context: Context) -> MKMapView {
@@ -170,38 +200,21 @@ struct MapView: UIViewRepresentable {
 
         // Update speed
         speed = location.speed * 3.6 // Convert m/s to km/h
+        print("Message: \(message)\nSpeed: \(speed)")
         // Display warning message according to the speed
-        if speed >= 120 {
+        if speed > Double(120) {
             let distance = 7 * length
-            let message = "Please keep a distance of \(distance) meters."
-            let alertController = UIAlertController(title: "Warning", message: message, preferredStyle: .alert)
-            let okAction = UIAlertAction(title: "OK", style: .default, handler: nil)
-            alertController.addAction(okAction)
-            if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-               let viewController = windowScene.windows.first?.rootViewController {
-                viewController.present(alertController, animated: true, completion: nil)
-            }
-        } else if speed < 30 {
+            message = "Please keep a distance of \(distance) meters."
+        } else if speed < Double(30) {
             let distance = 2 * length
-            let message = "Please keep a distance of \(distance) meters."
-            let alertController = UIAlertController(title: "Warning", message: message, preferredStyle: .alert)
-            let okAction = UIAlertAction(title: "OK", style: .default, handler: nil)
-            alertController.addAction(okAction)
-            if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-               let viewController = windowScene.windows.first?.rootViewController {
-                viewController.present(alertController, animated: true, completion: nil)
-            }
+            message = "Please keep a distance of \(distance) meters."
         } else {
             let distance = (speed - 30) * 0.1 * length
-            let message = "Please keep a distance of \(distance) meters."
-            let alertController = UIAlertController(title: "Warning", message: message, preferredStyle: .alert)
-            let okAction = UIAlertAction(title: "OK", style: .default, handler: nil)
-            alertController.addAction(okAction)
-            if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-               let viewController = windowScene.windows.first?.rootViewController {
-                viewController.present(alertController, animated: true, completion: nil)
-            }
+            message = "Please keep a distance of \(distance) meters."
         }
+        let distance = 2 * length
+        message = "Please keep a distance of \(distance) meters."
+        print("Message: \(message)")
     }
 
     func makeCoordinator() -> Coordinator {
@@ -236,6 +249,12 @@ struct MapView: UIViewRepresentable {
             return annotationView
         }
     }
+    init(locationManager: LocationManager, speed: Binding<CLLocationSpeed>, message: Binding<String> ) {
+        self.locationManager = locationManager
+        self._speed = speed
+        self._message = message
+    }
+
 }
 
 struct ContentView_Previews: PreviewProvider {
