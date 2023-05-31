@@ -35,6 +35,39 @@ extension LocationManager: CLLocationManagerDelegate {
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         guard let location = locations.last else { return }
         self.location = location
+        let newSpeed = location.speed * 3.6
+        let length = 5
+        if newSpeed >= 120 {
+            let distance = 7 * length
+            let message = "Please keep a distance of \(distance) meters."
+            let alertController = UIAlertController(title: "Warning", message: message, preferredStyle: .alert)
+            let okAction = UIAlertAction(title: "OK", style: .default, handler: nil)
+            alertController.addAction(okAction)
+            if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+               let viewController = windowScene.windows.first?.rootViewController {
+                viewController.present(alertController, animated: true, completion: nil)
+            }
+        } else if newSpeed < 30 {
+            let distance = 2 * length
+            let message = "Please keep a distance of \(distance) meters."
+            let alertController = UIAlertController(title: "Warning", message: message, preferredStyle: .alert)
+            let okAction = UIAlertAction(title: "OK", style: .default, handler: nil)
+            alertController.addAction(okAction)
+            if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+               let viewController = windowScene.windows.first?.rootViewController {
+                viewController.present(alertController, animated: true, completion: nil)
+            }
+        } else {
+            let distance = (newSpeed - 30) * 0.1 * Double(length)
+            let message = "Please keep a distance of \(distance) meters."
+            let alertController = UIAlertController(title: "Warning", message: message, preferredStyle: .alert)
+            let okAction = UIAlertAction(title: "OK", style: .default, handler: nil)
+            alertController.addAction(okAction)
+            if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+               let viewController = windowScene.windows.first?.rootViewController {
+                viewController.present(alertController, animated: true, completion: nil)
+            }
+        }
     }
 
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
