@@ -9,11 +9,15 @@ import SwiftUI
 import CoreLocation
 import MapKit
 
-class LocationManager: NSObject, ObservableObject {
+class LocationManager: NSObject, CLLocationManagerDelegate, ObservableObject {
     private let locationManager = CLLocationManager()
     @Published var location: CLLocation?
     @Published var authorizationStatus: CLAuthorizationStatus?
     @Published var locationServicesEnabled = CLLocationManager.locationServicesEnabled()
+    @Published var message: String = "No message" // set an initial value for the message
+    @Published var speed: Double = 0.0 // add a new @Published property for speed
+
+
 
     static let length = 7.0 // Example length value
     static let maxSpeed = 120.0 // Maximum speed for 7 * length
@@ -57,24 +61,7 @@ class LocationManager: NSObject, ObservableObject {
 
         return distance
     }
-}
-
-extension LocationManager {
-    func showAlert(speed: Double) {
-        let distance = calculateDistance(speed: speed)
-        let message = "Please keep a distance of \(String(format: "%.2f", distance)) meters."
-        let alertController = UIAlertController(title: "Alert", message: message, preferredStyle: .alert)
-        let okAction = UIAlertAction(title: "OK", style: .default, handler: nil)
-        alertController.addAction(okAction)
-        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-           let viewController = windowScene.windows.first?.rootViewController {
-            viewController.present(alertController, animated: true, completion: nil)
-        }
-    }
-}
-
-extension LocationManager: CLLocationManagerDelegate {
-    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
         authorizationStatus = manager.authorizationStatus
         if manager.authorizationStatus == .denied {
             print("User denied location permission")
@@ -83,9 +70,18 @@ extension LocationManager: CLLocationManagerDelegate {
 
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         print("Got location and update speed")
-        if let speed = locations.last?.speed {
+        guard let location = locations.last else { return }
+
+        speed = location.speed
+        if (speed < 0) {
+            message = "You are not moving"
+            speed = 0
+        } else {
+            let formattedSpeed = String(format: "%.2f", speed * 3.6) // format the speed to two decimal places
+            print("Speed in locationManager is \(formattedSpeed) km/h")
             showAlert(speed: speed * 3.6)
         }
+
     }
 
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
@@ -104,11 +100,44 @@ extension LocationManager: CLLocationManagerDelegate {
     }
 }
 
+extension LocationManager {
+    func showAlert(speed: Double) {
+        let distance = calculateDistance(speed: speed)
+        message = "Please keep a distance of \(String(format: "%.2f", distance)) meters when speed is \(String(format: "%.2f", speed)) Km/h."
+        let alertController = UIAlertController(title: "Alert", message: message, preferredStyle: .alert)
+        let okAction = UIAlertAction(title: "OK", style: .default, handler: nil)
+        alertController.addAction(okAction)
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let viewController = windowScene.windows.first?.rootViewController {
+            viewController.present(alertController, animated: true, completion: nil)
+        }
+    }
+}
+
+
+class TimeManager: ObservableObject {
+    @Published var currentTime = Date()
+
+    private var timer: Timer?
+
+    init() {
+        timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+            self?.currentTime = Date()
+        }
+    }
+
+    deinit {
+        timer?.invalidate()
+    }
+}
+
 struct ContentView: View {
-    @ObservedObject var locationManager = LocationManager()
-    @State private var speed: CLLocationSpeed = 0.0
-    @State private var message = "Init values"
+    @StateObject var locationManager = LocationManager()
+    @State private var speed: Double = 0.0
+    @State private var message: String = "Init values"
+    @StateObject private var timeManager = TimeManager()
     let length: Double = 8 // Define the length in meters
+
 
     var body: some View {
         VStack {
@@ -126,22 +155,31 @@ struct ContentView: View {
             .background(Color.yellow)
             .cornerRadius(10)
 
-            MapView(locationManager: locationManager, speed: $speed, message: $message)
-                .frame(height: 300)
-                .cornerRadius(10)
-
-            Text("Current Speed: \(speed, specifier: "%.2f") Km/h")
+            Text("Current time: \(timeManager.currentTime, formatter: dateFormatter)")
                 .font(.headline)
                 .foregroundColor(.blue)
                 .padding()
                 .background(Color.yellow)
                 .cornerRadius(10)
 
-            Text("Display: \(message)")
+            Text("Current Speed: \(locationManager.speed, specifier: "%.2f") Km/h")
+                .font(.headline)
+                .foregroundColor(.blue)
+                .padding()
+                .background(Color.yellow)
+                .cornerRadius(10)
+
+
+            Text("Notice: \(locationManager.message)")
                 .font(.headline)
                 .foregroundColor(.red)
                 .padding()
                 .background(Color.yellow)
+                .cornerRadius(10)
+
+            MapView(locationManager: locationManager)
+                .edgesIgnoringSafeArea(.all)
+                .frame(height: 300)
                 .cornerRadius(10)
 
         }
@@ -157,9 +195,12 @@ struct ContentView: View {
     init() {
         UINavigationBar.appearance().backgroundColor = .systemBlue
     }
+    private var dateFormatter: DateFormatter {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss z"
+        return formatter
+    }
 }
-
-
 class CustomAnnotationView: MKMarkerAnnotationView {
     override var annotation: MKAnnotation? {
         didSet {
@@ -187,8 +228,6 @@ class CustomAnnotation: NSObject, MKAnnotation {
 
 struct MapView: UIViewRepresentable {
     @ObservedObject var locationManager: LocationManager
-    @Binding var speed: CLLocationSpeed
-    @Binding var message: String
     let length: Double = 10 // Define the length in meters
 
     func makeUIView(context: Context) -> MKMapView {
@@ -207,23 +246,6 @@ struct MapView: UIViewRepresentable {
         let annotation = CustomAnnotation(coordinate: location.coordinate, title: "Current Location", subtitle: nil, image: UIImage(named: "custom_pin"), detailImage: UIImage(named: "custom_detail"))
         uiView.addAnnotation(annotation)
 
-        // Update speed
-        speed = location.speed * 3.6 // Convert m/s to km/h
-        print("Message: \(message)\nSpeed: \(speed)")
-        // Display warning message according to the speed
-        if speed > Double(120) {
-            let distance = 7 * length
-            message = "Please keep a distance of \(distance) meters."
-        } else if speed < Double(30) {
-            let distance = 2 * length
-            message = "Please keep a distance of \(distance) meters."
-        } else {
-            let distance = (speed - 30) * 0.1 * length
-            message = "Please keep a distance of \(distance) meters."
-        }
-        let distance = 2 * length
-        message = "Please keep a distance of \(distance) meters."
-        print("Message: \(message)")
     }
 
     func makeCoordinator() -> Coordinator {
@@ -238,32 +260,35 @@ struct MapView: UIViewRepresentable {
         }
 
         func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
-            guard let annotation = annotation as? CustomAnnotation else { return nil }
-            let identifier = "custom_pin"
-            var annotationView = mapView.dequeueReusableAnnotationView(withIdentifier: identifier) as? CustomAnnotationView
-            if annotationView == nil {
-                annotationView = CustomAnnotationView(annotation: annotation, reuseIdentifier: identifier)
-                annotationView?.canShowCallout = true
+            if annotation is MKUserLocation {
+                let annotationView = MKAnnotationView(annotation: annotation, reuseIdentifier: "userLocation")
+                annotationView.image = UIImage(systemName: "location.fill")?.withTintColor(.red, renderingMode: .alwaysOriginal)
+                return annotationView
+            } else if let customAnnotation = annotation as? CustomAnnotation {
+                // Create a custom annotation view for the custom annotation
+                let annotationView = CustomAnnotationView(annotation: customAnnotation, reuseIdentifier: "CustomAnnotation")
+                annotationView.canShowCallout = true
 
                 // Add custom image to the callout accessory view
-                let imageView = UIImageView(image: annotation.detailImage)
+                let imageView = UIImageView(image: customAnnotation.detailImage)
                 imageView.contentMode = .scaleAspectFit
-                annotationView?.leftCalloutAccessoryView = imageView
+                imageView.frame = CGRect(x: 0, y: 0, width: 50, height: 50)
+                annotationView.detailCalloutAccessoryView = imageView
 
                 let button = UIButton(type: .detailDisclosure)
-                annotationView?.rightCalloutAccessoryView = button
+                annotationView.rightCalloutAccessoryView = button
+
+                // Set the image to a red pin
+                annotationView.image = UIImage(systemName: "mappin.circle.fill")?.withTintColor(.red, renderingMode: .alwaysOriginal)
+                return annotationView
             } else {
-                annotationView?.annotation = annotation
+                return nil
             }
-            return annotationView
         }
     }
-    init(locationManager: LocationManager, speed: Binding<CLLocationSpeed>, message: Binding<String> ) {
+    init(locationManager: LocationManager) {
         self.locationManager = locationManager
-        self._speed = speed
-        self._message = message
     }
-
 }
 
 struct ContentView_Previews: PreviewProvider {
