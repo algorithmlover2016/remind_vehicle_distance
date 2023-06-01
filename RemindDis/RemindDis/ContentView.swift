@@ -42,6 +42,35 @@ class LocationManager: NSObject, ObservableObject {
     func stopUpdatingLocation() {
         locationManager.stopUpdatingLocation()
     }
+
+    func calculateDistance(speed: Double) -> Double {
+        var distance: Double
+
+        if speed > LocationManager.maxSpeed {
+            distance = LocationManager.maxDis * LocationManager.length
+        } else if speed < LocationManager.minSpeed {
+            distance = LocationManager.minDis * LocationManager.length
+        } else {
+            let ratio = (LocationManager.maxDis * LocationManager.length - LocationManager.minDis * LocationManager.length) / (LocationManager.maxSpeed - LocationManager.minSpeed)
+            distance = ((speed - LocationManager.minSpeed) * ratio + LocationManager.minDis) * LocationManager.length
+        }
+
+        return distance
+    }
+}
+
+extension LocationManager {
+    func showAlert(speed: Double) {
+        let distance = calculateDistance(speed: speed)
+        let message = "Please keep a distance of \(String(format: "%.2f", distance)) meters."
+        let alertController = UIAlertController(title: "Alert", message: message, preferredStyle: .alert)
+        let okAction = UIAlertAction(title: "OK", style: .default, handler: nil)
+        alertController.addAction(okAction)
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let viewController = windowScene.windows.first?.rootViewController {
+            viewController.present(alertController, animated: true, completion: nil)
+        }
+    }
 }
 
 extension LocationManager: CLLocationManagerDelegate {
@@ -53,26 +82,9 @@ extension LocationManager: CLLocationManagerDelegate {
     }
 
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-        guard let location = locations.last else { return }
-        self.location = location
-        let newSpeed = location.speed * 3.6
-        var distance: Double
-        var message: String
-        if newSpeed >= LocationManager.maxSpeed {
-            distance = LocationManager.maxDis * LocationManager.length
-        } else if newSpeed <= LocationManager.minSpeed {
-            distance = LocationManager.minDis * LocationManager.length
-        } else {
-            distance = ((newSpeed - LocationManager.minSpeed) * LocationManager.ratio + LocationManager.minDis) * LocationManager.length
-        }
-        message = "Please keep a distance of \(String(format: "%.2f", distance)) meters."
-
-        let alertController = UIAlertController(title: "Warning", message: message, preferredStyle: .alert)
-        let okAction = UIAlertAction(title: "OK", style: .default, handler: nil)
-        alertController.addAction(okAction)
-        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-           let viewController = windowScene.windows.first?.rootViewController {
-            viewController.present(alertController, animated: true, completion: nil)
+        print("Got location and update speed")
+        if let speed = locations.last?.speed {
+            showAlert(speed: speed * 3.6)
         }
     }
 
