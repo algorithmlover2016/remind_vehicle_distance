@@ -15,6 +15,13 @@ class LocationManager: NSObject, ObservableObject {
     @Published var authorizationStatus: CLAuthorizationStatus?
     @Published var locationServicesEnabled = CLLocationManager.locationServicesEnabled()
 
+    static let length = 7.0 // Example length value
+    static let maxSpeed = 120.0 // Maximum speed for 7 * length
+    static let maxDis = 7.0
+    static let minSpeed = 30.0 // Minimum speed for 2 * length
+    static let minDis = 2.0
+    static let ratio = (maxDis - minDis) / (maxSpeed - minSpeed)
+
     override init() {
         super.init()
         locationManager.delegate = self
@@ -47,37 +54,23 @@ extension LocationManager: CLLocationManagerDelegate {
         guard let location = locations.last else { return }
         self.location = location
         let newSpeed = location.speed * 3.6
-        let length = 7
-        if newSpeed >= 120 {
-            let distance = 7 * length
-            let message = "Please keep a distance of \(distance) meters."
-            let alertController = UIAlertController(title: "Warning", message: message, preferredStyle: .alert)
-            let okAction = UIAlertAction(title: "OK", style: .default, handler: nil)
-            alertController.addAction(okAction)
-            if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-               let viewController = windowScene.windows.first?.rootViewController {
-                viewController.present(alertController, animated: true, completion: nil)
-            }
-        } else if newSpeed < 30 {
-            let distance = 2 * length
-            let message = "Please keep a distance of \(distance) meters."
-            let alertController = UIAlertController(title: "Warning", message: message, preferredStyle: .alert)
-            let okAction = UIAlertAction(title: "OK", style: .default, handler: nil)
-            alertController.addAction(okAction)
-            if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-               let viewController = windowScene.windows.first?.rootViewController {
-                viewController.present(alertController, animated: true, completion: nil)
-            }
+        var distance: Double
+        var message: String
+        if newSpeed >= LocationManager.maxSpeed {
+            distance = LocationManager.maxDis * LocationManager.length
+        } else if newSpeed <= LocationManager.minSpeed {
+            distance = LocationManager.minDis * LocationManager.length
         } else {
-            let distance = (newSpeed - 30) * 0.1 * Double(length)
-            let message = "Please keep a distance of \(distance) meters."
-            let alertController = UIAlertController(title: "Warning", message: message, preferredStyle: .alert)
-            let okAction = UIAlertAction(title: "OK", style: .default, handler: nil)
-            alertController.addAction(okAction)
-            if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-               let viewController = windowScene.windows.first?.rootViewController {
-                viewController.present(alertController, animated: true, completion: nil)
-            }
+            distance = ((newSpeed - LocationManager.minSpeed) * LocationManager.ratio + LocationManager.minDis) * LocationManager.length
+        }
+        message = "Please keep a distance of \(String(format: "%.2f", distance)) meters."
+
+        let alertController = UIAlertController(title: "Warning", message: message, preferredStyle: .alert)
+        let okAction = UIAlertAction(title: "OK", style: .default, handler: nil)
+        alertController.addAction(okAction)
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let viewController = windowScene.windows.first?.rootViewController {
+            viewController.present(alertController, animated: true, completion: nil)
         }
     }
 
