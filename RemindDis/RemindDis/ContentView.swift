@@ -20,7 +20,9 @@ class LocationManager: NSObject, ObservableObject {
     static let maxDis = 7.0
     static let minSpeed = 30.0 // Minimum speed for 2 * length
     static let minDis = 2.0
-    static let ratio = (maxDis - minDis) / (maxSpeed - minSpeed)
+    static var ratio: Double {
+        return (LocationManager.maxDis - LocationManager.minDis) / (LocationManager.maxSpeed - LocationManager.minSpeed) * LocationManager.length
+    }
 
     override init() {
         super.init()
