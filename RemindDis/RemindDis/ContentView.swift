@@ -72,14 +72,14 @@ class LocationManager: NSObject, CLLocationManagerDelegate, ObservableObject {
         print("Got location and update speed")
         guard let location = locations.last else { return }
 
-        speed = location.speed
+        speed = location.speed * 3.6
         if (speed < 0) {
             message = "You are not moving"
             speed = 0
         } else {
-            let formattedSpeed = String(format: "%.2f", speed * 3.6) // format the speed to two decimal places
+            let formattedSpeed = String(format: "%.2f", speed) // format the speed to two decimal places
             print("Speed in locationManager is \(formattedSpeed) km/h")
-            showAlert(speed: speed * 3.6)
+            showAlert(speed: speed)
         }
 
     }
