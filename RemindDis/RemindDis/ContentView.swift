@@ -32,7 +32,7 @@ class LocationManager: NSObject, CLLocationManagerDelegate, ObservableObject {
         super.init()
         locationManager.delegate = self
         locationManager.desiredAccuracy = kCLLocationAccuracyBest
-        locationManager.requestWhenInUseAuthorization()
+        locationManager.distanceFilter = kCLDistanceFilterNone
         locationManager.startUpdatingLocation()
     }
     func requestWhenInUseAuthorization() {
@@ -61,10 +61,19 @@ class LocationManager: NSObject, CLLocationManagerDelegate, ObservableObject {
 
         return distance
     }
-     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+
+    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
         authorizationStatus = manager.authorizationStatus
-        if manager.authorizationStatus == .denied {
-            print("User denied location permission")
+
+        switch authorizationStatus {
+        case .authorizedAlways, .authorizedWhenInUse:
+            locationManager.startUpdatingLocation()
+        case .denied, .restricted:
+            locationServicesEnabled = false
+        case .notDetermined:
+            locationManager.requestWhenInUseAuthorization()
+        @unknown default:
+            break
         }
     }
 
@@ -79,7 +88,7 @@ class LocationManager: NSObject, CLLocationManagerDelegate, ObservableObject {
         } else {
             let formattedSpeed = String(format: "%.2f", speed) // format the speed to two decimal places
             print("Speed in locationManager is \(formattedSpeed) km/h")
-            showAlert(speed: speed)
+            // showAlert(speed: speed)
         }
 
     }
