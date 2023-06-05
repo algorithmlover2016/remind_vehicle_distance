@@ -88,7 +88,7 @@ class LocationManager: NSObject, CLLocationManagerDelegate, ObservableObject {
         } else {
             let formattedSpeed = String(format: "%.2f", speed) // format the speed to two decimal places
             print("Speed in locationManager is \(formattedSpeed) km/h")
-            // showAlert(speed: speed)
+            showAlert(speed: speed)
         }
 
     }
@@ -113,6 +113,7 @@ extension LocationManager {
     func showAlert(speed: Double) {
         let distance = calculateDistance(speed: speed)
         message = "Please keep a distance of \(String(format: "%.2f", distance)) meters when speed is \(String(format: "%.2f", speed)) Km/h."
+        return
         let alertController = UIAlertController(title: "Alert", message: message, preferredStyle: .alert)
         let okAction = UIAlertAction(title: "OK", style: .default, handler: nil)
         alertController.addAction(okAction)
